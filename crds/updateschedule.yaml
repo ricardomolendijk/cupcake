@@ -1,0 +1,107 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: updateschedules.cupcake.ricardomolendijk.com
+spec:
+  group: cupcake.ricardomolendijk.com
+  names:
+    kind: UpdateSchedule
+    listKind: UpdateScheduleList
+    plural: updateschedules
+    singular: updateschedule
+    shortNames:
+      - us
+  scope: Cluster
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - schedule
+                - updatePolicy
+              properties:
+                schedule:
+                  type: string
+                  description: "Cron expression for schedule"
+                  pattern: '^(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})$'
+                updatePolicy:
+                  type: object
+                  required:
+                    - targetVersionPattern
+                  properties:
+                    targetVersionPattern:
+                      type: string
+                      description: "Version pattern, e.g., 1.27.* or latest-patch"
+                    components:
+                      type: array
+                      items:
+                        type: string
+                      default:
+                        - kubeadm
+                        - kubelet
+                    strategy:
+                      type: string
+                      enum:
+                        - rolling
+                        - parallel
+                        - canary
+                      default: rolling
+                    concurrency:
+                      type: integer
+                      minimum: 1
+                      default: 1
+                    preflightChecks:
+                      type: boolean
+                      default: true
+                suspended:
+                  type: boolean
+                  default: false
+                  description: "Suspend scheduled updates"
+                maintenanceWindow:
+                  type: object
+                  properties:
+                    start:
+                      type: string
+                      description: "Start time (HH:MM format)"
+                    end:
+                      type: string
+                      description: "End time (HH:MM format)"
+                    timezone:
+                      type: string
+                      default: "UTC"
+            status:
+              type: object
+              properties:
+                lastScheduledTime:
+                  type: string
+                  format: date-time
+                nextScheduledTime:
+                  type: string
+                  format: date-time
+                lastUpdateName:
+                  type: string
+                  description: "Name of last created ScheduledUpdate"
+                active:
+                  type: integer
+                  description: "Number of active scheduled updates"
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Schedule
+          type: string
+          jsonPath: .spec.schedule
+        - name: Suspended
+          type: boolean
+          jsonPath: .spec.suspended
+        - name: Last Schedule
+          type: string
+          jsonPath: .status.lastScheduledTime
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

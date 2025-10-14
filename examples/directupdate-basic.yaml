@@ -1,0 +1,19 @@
+apiVersion: cupcake.ricardomolendijk.com/v1
+kind: DirectUpdate
+metadata:
+  name: upgrade-to-1-27-4
+spec:
+  targetVersion: "1.27.4"
+  components:
+    - kubeadm
+    - kubelet
+    - kubectl
+    - containerd
+  strategy: rolling
+  concurrency: 1
+  preflightChecks: true
+  airGapped:
+    enabled: false
+  dryRun: false
+  operationTimeout: "2h"
+  nodeTimeout: "30m"

@@ -1,0 +1,19 @@
+apiVersion: cupcake.ricardomolendijk.com/v1
+kind: DirectUpdate
+metadata:
+  name: upgrade-workers-canary
+spec:
+  targetVersion: "1.27.4"
+  components:
+    - kubeadm
+    - kubelet
+  strategy: canary
+  concurrency: 2
+  canary:
+    enabled: true
+    nodes:
+      - worker-01
+      - worker-02
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+  preflightChecks: true

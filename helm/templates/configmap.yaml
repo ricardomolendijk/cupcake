@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cupcake.fullname" . }}-config
+  namespace: {{ include "cupcake.namespace" . }}
+  labels:
+    {{- include "cupcake.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    operator:
+      leaderElection:
+        enabled: {{ .Values.operator.leaderElection.enabled }}
+        leaseDuration: {{ .Values.operator.leaderElection.leaseDuration }}
+        renewDeadline: {{ .Values.operator.leaderElection.renewDeadline }}
+        retryPeriod: {{ .Values.operator.leaderElection.retryPeriod }}
+      metrics:
+        enabled: {{ .Values.operator.metrics.enabled }}
+        port: {{ .Values.operator.metrics.port }}
+    agent:
+      hostPath: {{ .Values.agent.hostPath }}
+      reconcileInterval: {{ .Values.agent.env.reconcileInterval }}
+    externalStore:
+      enabled: {{ .Values.externalStore.enabled }}
+      {{- if .Values.externalStore.enabled }}
+      type: {{ .Values.externalStore.type }}
+      {{- end }}

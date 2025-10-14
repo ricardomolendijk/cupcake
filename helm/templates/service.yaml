@@ -1,0 +1,18 @@
+{{- if .Values.operator.metrics.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cupcake.fullname" . }}-metrics
+  namespace: {{ include "cupcake.namespace" . }}
+  labels:
+    {{- include "cupcake.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.operator.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "cupcake.selectorLabels" . | nindent 4 }}
+{{- end }}

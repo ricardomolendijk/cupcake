@@ -1,0 +1,99 @@
+# Production values for Kubernetes Update Operator
+
+operator:
+  replicaCount: 2  # HA setup
+  image:
+    repository: registry.example.com/cupcake
+    pullPolicy: Always
+    tag: "v0.1.0"
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  leaderElection:
+    enabled: true
+    leaseDuration: 15s
+    renewDeadline: 10s
+    retryPeriod: 2s
+  
+  metrics:
+    enabled: true
+    port: 8080
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+  
+  # Anti-affinity to spread replicas
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: cupcake
+                app.kubernetes.io/component: operator
+            topologyKey: kubernetes.io/hostname
+
+agent:
+  enabled: true
+  image:
+    repository: registry.example.com/cupcake-agent
+    pullPolicy: Always
+    tag: "v0.1.0"
+  
+  hostPath: /var/lib/cupcake
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  tolerations:
+    - operator: Exists  # Run on all nodes including control-plane
+  
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  
+  env:
+    logLevel: info
+    reconcileInterval: 30s
+
+# External backup store - REQUIRED for production
+externalStore:
+  enabled: true
+  type: s3
+  
+  s3:
+    bucket: kube-upgrades-prod
+    endpoint: ""  # Use AWS S3
+    region: us-east-1
+    # Use existing secret with credentials
+    existingSecret: "backup-store-credentials"
+    # Or provide inline (not recommended for production)
+    accessKey: ""
+    secretKey: ""
+
+rbac:
+  create: true
+
+crds:
+  install: true
+  keep: true
+
+namespaceOverride: "kube-system"
+
+# Image pull secrets (configure based on your registry)
+global:
+  imagePullSecrets:
+    - name: registry-credentials

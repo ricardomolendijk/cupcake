@@ -1,0 +1,18 @@
+apiVersion: v2
+name: cupcake
+description: Kubernetes cluster upgrade automation - Control-plane Upgrade Platform for Continuous Kubernetes Evolution
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kubernetes
+  - operator
+  - upgrade
+  - kubeadm
+  - automation
+maintainers:
+  - name: Ricardo Molendijk
+    email: ricardo@ricardomolendijk.com
+home: https://github.com/ricardomolendijk/cupcake
+sources:
+  - https://github.com/ricardomolendijk/cupcake

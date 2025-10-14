@@ -1,0 +1,161 @@
+# Default values for cupcake
+# This is a YAML-formatted file.
+
+# Operator configuration
+operator:
+  replicaCount: 1
+  image:
+    repository: cupcake-operator
+    pullPolicy: IfNotPresent
+    tag: "v0.1.0"
+  
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+  
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  
+  podAnnotations: {}
+  
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  nodeSelector: {}
+  
+  tolerations: []
+  
+  affinity: {}
+  
+  # Leader election settings
+  leaderElection:
+    enabled: true
+    leaseDuration: 15s
+    renewDeadline: 10s
+    retryPeriod: 2s
+  
+  # Metrics configuration
+  metrics:
+    enabled: true
+    port: 8080
+    serviceMonitor:
+      enabled: false
+      interval: 30s
+
+# Agent configuration (DaemonSet)
+agent:
+  enabled: true
+  image:
+    repository: cupcake-agent
+    pullPolicy: IfNotPresent
+    tag: "v0.1.0"
+  
+  imagePullSecrets: []
+  
+  # HostPath for checkpoints and logs
+  hostPath: /var/lib/cupcake
+  
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  
+  podAnnotations: {}
+  
+  podSecurityContext: {}
+  
+  securityContext:
+    privileged: true
+    runAsUser: 0
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  # Node selector for agent deployment
+  nodeSelector: {}
+  
+  # Tolerations to run on all nodes including control-plane
+  tolerations:
+    - operator: Exists
+  
+  # Update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  
+  # Environment variables
+  env:
+    logLevel: info
+    reconcileInterval: 30s
+
+# External backup store configuration
+externalStore:
+  enabled: false
+  type: s3  # s3, minio, gcs, nfs
+  
+  # S3/MinIO configuration
+  s3:
+    bucket: cupcake-backups
+    endpoint: ""  # Leave empty for AWS S3
+    region: us-east-1
+    # Credentials from existing secret
+    existingSecret: ""
+    # Or create new secret with these keys
+    accessKey: ""
+    secretKey: ""
+  
+  # GCS configuration
+  gcs:
+    bucket: cupcake-backups
+    # Service account key from existing secret
+    existingSecret: ""
+    # Or provide base64-encoded service account JSON
+    serviceAccountKey: ""
+  
+  # NFS configuration
+  nfs:
+    server: ""
+    path: /cupcake-backups
+    mountOptions: []
+
+# RBAC configuration
+rbac:
+  create: true
+
+# CRDs installation
+crds:
+  install: true
+  keep: true
+
+# Namespace to deploy into
+namespaceOverride: ""
+
+# Global settings
+global:
+  # Image pull secrets for all components
+  imagePullSecrets: []

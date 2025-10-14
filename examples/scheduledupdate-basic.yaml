@@ -1,0 +1,14 @@
+apiVersion: cupcake.ricardomolendijk.com/v1
+kind: ScheduledUpdate
+metadata:
+  name: scheduled-upgrade-weekend
+spec:
+  targetVersion: "1.27.4"
+  scheduleAt: "2024-12-21T02:00:00Z"
+  components:
+    - kubeadm
+    - kubelet
+    - kubectl
+  strategy: rolling
+  concurrency: 1
+  preflightChecks: true

@@ -1,0 +1,185 @@
+{{- if .Values.rbac.create -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cupcake.fullname" . }}-operator
+  labels:
+    {{- include "cupcake.labels" . | nindent 4 }}
+rules:
+  # Custom resources
+  - apiGroups:
+      - cupcake.ricardomolendijk.com
+    resources:
+      - directupdates
+      - scheduledupdates
+      - updateschedules
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - cupcake.ricardomolendijk.com
+    resources:
+      - directupdates/status
+      - scheduledupdates/status
+      - updateschedules/status
+    verbs:
+      - get
+      - update
+      - patch
+  # Nodes
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+  # Pods (for cordon/drain operations and helper jobs)
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - pods/eviction
+    verbs:
+      - create
+  # ConfigMaps (for agent work instructions)
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  # Events
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  # Leases for leader election
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  # PodDisruptionBudgets (for preflight checks)
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+  # Jobs
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cupcake.fullname" . }}-operator
+  labels:
+    {{- include "cupcake.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cupcake.fullname" . }}-operator
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cupcake.serviceAccountName" . }}
+    namespace: {{ include "cupcake.namespace" . }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cupcake.fullname" . }}-agent
+  labels:
+    {{- include "cupcake.agent.labels" . | nindent 4 }}
+rules:
+  # Agents need to read nodes to get their own node information
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  # Read ConfigMaps for work instructions
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  # Update ConfigMaps for status reporting
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - update
+      - patch
+      - create
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cupcake.fullname" . }}-agent
+  labels:
+    {{- include "cupcake.agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cupcake.fullname" . }}-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cupcake.agent.serviceAccountName" . }}
+    namespace: {{ include "cupcake.namespace" . }}
+{{- end }}

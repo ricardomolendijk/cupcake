@@ -1,0 +1,19 @@
+apiVersion: cupcake.ricardomolendijk.com/v1
+kind: UpdateSchedule
+metadata:
+  name: monthly-patch-updates
+spec:
+  schedule: "0 2 1 * *"  # First day of month at 2 AM
+  updatePolicy:
+    targetVersionPattern: "latest-patch"
+    components:
+      - kubeadm
+      - kubelet
+    strategy: rolling
+    concurrency: 1
+    preflightChecks: true
+  suspended: false
+  maintenanceWindow:
+    start: "02:00"
+    end: "06:00"
+    timezone: "UTC"

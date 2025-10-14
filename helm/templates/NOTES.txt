@@ -1,0 +1,95 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+{{- if .Values.operator.metrics.enabled }}
+
+METRICS:
+  The operator exposes Prometheus metrics at:
+  
+  $ kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "cupcake.fullname" . }}-metrics {{ .Values.operator.metrics.port }}:{{ .Values.operator.metrics.port }}
+  
+  Then visit: http://localhost:{{ .Values.operator.metrics.port }}/metrics
+{{- end }}
+
+{{- if .Values.externalStore.enabled }}
+
+BACKUP CONFIGURATION:
+  External backup is ENABLED
+  Type: {{ .Values.externalStore.type }}
+{{- if eq .Values.externalStore.type "s3" }}
+  Bucket: {{ .Values.externalStore.s3.bucket }}
+  Region: {{ .Values.externalStore.s3.region }}
+{{- else if eq .Values.externalStore.type "gcs" }}
+  Bucket: {{ .Values.externalStore.gcs.bucket }}
+{{- end }}
+  
+  ⚠️  Make sure backup credentials are properly configured!
+{{- else }}
+
+BACKUP CONFIGURATION:
+  External backup is DISABLED
+  
+  ⚠️  For production use, enable external backup:
+  
+  $ helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+      --reuse-values \
+      --set externalStore.enabled=true \
+      --set externalStore.type=s3 \
+      --set externalStore.s3.bucket=YOUR_BUCKET
+{{- end }}
+
+GETTING STARTED:
+
+1. Create your first upgrade:
+
+   $ kubectl apply -f - <<EOF
+   apiVersion: cupcake.ricardomolendijk.com/v1
+   kind: DirectUpdate
+   metadata:
+     name: upgrade-to-1-27-4
+   spec:
+     targetVersion: "1.27.4"
+     components: [kubeadm, kubelet, kubectl]
+     strategy: rolling
+     concurrency: 1
+   EOF
+
+2. Monitor the upgrade:
+
+   $ kubectl get directupdate upgrade-to-1-27-4
+   $ kubectl get directupdate upgrade-to-1-27-4 -o yaml
+
+3. Watch operator logs:
+
+   $ kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "cupcake.fullname" . }} -f
+
+4. Check agent status:
+
+   $ kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/component=agent
+
+DOCUMENTATION:
+
+  - Quick Start: https://github.com/YOUR_ORG/cupcake/blob/main/QUICKSTART.md
+  - Architecture: https://github.com/YOUR_ORG/cupcake/blob/main/docs/architecture.md
+  - Operations: https://github.com/YOUR_ORG/cupcake/blob/main/docs/runbook.md
+  - Security: https://github.com/YOUR_ORG/cupcake/blob/main/docs/security.md
+
+EXAMPLES:
+
+  View example upgrades in the examples/ directory:
+  - Basic upgrade: examples/directupdate-basic.yaml
+  - Canary deployment: examples/directupdate-canary.yaml
+  - Scheduled upgrade: examples/scheduledupdate-basic.yaml
+
+SUPPORT:
+
+  - GitHub Issues: https://github.com/YOUR_ORG/cupcake/issues
+  - Documentation: https://github.com/YOUR_ORG/cupcake
+
+Happy upgrading! 🚀

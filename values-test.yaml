@@ -1,0 +1,65 @@
+# Test/Development values for Kubernetes Update Operator
+
+operator:
+  replicaCount: 1  # Single instance for testing
+  image:
+    repository: cupcake
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  leaderElection:
+    enabled: false  # Simpler for testing
+  
+  metrics:
+    enabled: true
+    port: 8080
+    serviceMonitor:
+      enabled: false
+
+agent:
+  enabled: true
+  image:
+    repository: cupcake-agent
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  
+  hostPath: /var/lib/cupcake
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  tolerations:
+    - operator: Exists
+  
+  env:
+    logLevel: debug  # More verbose for testing
+    reconcileInterval: 10s  # Faster reconciliation
+
+# Backup disabled for test/dev
+externalStore:
+  enabled: false
+
+rbac:
+  create: true
+
+crds:
+  install: true
+  keep: false  # Allow cleanup in test
+
+namespaceOverride: "kube-system"
+
+global:
+  imagePullSecrets: []

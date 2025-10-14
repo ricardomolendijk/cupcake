@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cupcake.fullname" . }}
+  namespace: {{ include "cupcake.namespace" . }}
+  labels:
+    {{- include "cupcake.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.operator.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cupcake.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.operator.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cupcake.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "cupcake.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.operator.podSecurityContext | nindent 8 }}
+      containers:
+        - name: operator
+          securityContext:
+            {{- toYaml .Values.operator.securityContext | nindent 12 }}
+          image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: {{ include "cupcake.fullname" . }}
+            - name: BACKUP_STORE_ENABLED
+              value: {{ .Values.externalStore.enabled | quote }}
+            {{- if .Values.externalStore.enabled }}
+            - name: BACKUP_STORE_TYPE
+              value: {{ .Values.externalStore.type | quote }}
+            {{- if eq .Values.externalStore.type "s3" }}
+            - name: BACKUP_STORE_BUCKET
+              value: {{ .Values.externalStore.s3.bucket | quote }}
+            - name: BACKUP_STORE_ENDPOINT
+              value: {{ .Values.externalStore.s3.endpoint | quote }}
+            - name: BACKUP_STORE_REGION
+              value: {{ .Values.externalStore.s3.region | quote }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cupcake.externalStoreSecretName" . }}
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cupcake.externalStoreSecretName" . }}
+                  key: secret-key
+            {{- else if eq .Values.externalStore.type "gcs" }}
+            - name: BACKUP_STORE_BUCKET
+              value: {{ .Values.externalStore.gcs.bucket | quote }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+            {{- end }}
+            {{- end }}
+            - name: LEADER_ELECTION_ENABLED
+              value: {{ .Values.operator.leaderElection.enabled | quote }}
+            - name: METRICS_ENABLED
+              value: {{ .Values.operator.metrics.enabled | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.operator.metrics.port | quote }}
+          ports:
+            {{- if .Values.operator.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.operator.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.operator.metrics.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ .Values.operator.metrics.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.operator.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if and .Values.externalStore.enabled (eq .Values.externalStore.type "gcs") }}
+            - name: gcs-key
+              mountPath: /var/secrets/google
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if and .Values.externalStore.enabled (eq .Values.externalStore.type "gcs") }}
+        - name: gcs-key
+          secret:
+            secretName: {{ include "cupcake.externalStoreSecretName" . }}
+            items:
+              - key: service-account-key
+                path: key.json
+        {{- end }}
+      {{- with .Values.operator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
