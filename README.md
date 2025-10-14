@@ -71,6 +71,16 @@ kubectl get directupdate upgrade-to-1-27-4 -w
 
 CUPCAKE (**C**ontrol-plane **U**pgrade **P**latform for **C**ontinuous **K**ubernetes **A**utomation and **E**volution) is a production-ready Kubernetes operator that automates the complex process of upgrading kubeadm-based clusters. It handles everything from etcd backups to rolling node updates, with full resumability and safety guarantees.
 
+### Smart Multi-Step Upgrades
+
+CUPCAKE automatically handles Kubernetes version skew constraints:
+- **Detects version gaps**: If you specify 1.25 → 1.28, CUPCAKE automatically upgrades through 1.26, 1.27, then 1.28
+- **Patch upgrades**: Directly jumps to target patch version (1.27.1 → 1.27.9)
+- **Breaking change warnings**: Alerts about API deprecations and removals
+- **Sequential safety**: Each step backs up etcd and verifies cluster health
+
+[Learn more about multi-step upgrades →](docs/multi-step-upgrades.md)
+
 ## Features
 
 - ✅ **Control-plane-first upgrades** with automatic etcd snapshots
@@ -86,6 +96,7 @@ CUPCAKE (**C**ontrol-plane **U**pgrade **P**latform for **C**ontinuous **K**uber
 ## Documentation
 
 - [Quick Start Guide](QUICKSTART.md) - Get started in 5 minutes
+- [Multi-Step Upgrades](docs/multi-step-upgrades.md) - Automatic version skew handling
 - [Helm Publishing Guide](HELM.md) - Package and publish the chart
 - [Architecture](docs/architecture.md) - System design and components
 - [Operations Runbook](docs/runbook.md) - Day-to-day operations
