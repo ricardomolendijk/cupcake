@@ -98,6 +98,7 @@ CUPCAKE automatically handles Kubernetes version skew constraints:
 - [Quick Start Guide](QUICKSTART.md) - Get started in 5 minutes
 - [Multi-Step Upgrades](docs/multi-step-upgrades.md) - Automatic version skew handling
 - [Helm Publishing Guide](HELM.md) - Package and publish the chart
+- [GitHub Actions CI/CD](docs/github-actions.md) - Automated builds and releases
 - [Architecture](docs/architecture.md) - System design and components
 - [Operations Runbook](docs/runbook.md) - Day-to-day operations
 - [Security Guide](docs/security.md) - Security best practices

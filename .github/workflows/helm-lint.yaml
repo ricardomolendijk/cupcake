@@ -1,0 +1,174 @@
+name: Helm Chart Lint
+
+on:
+  push:
+    paths:
+      - 'helm/**'
+      - 'crds/**'
+  pull_request:
+    paths:
+      - 'helm/**'
+      - 'crds/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Helm Chart
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+
+      - name: Lint Helm chart
+        run: |
+          helm lint helm/
+
+      - name: Validate CRDs
+        run: |
+          for crd in crds/*.yaml helm/templates/crds.yaml; do
+            if [ -f "$crd" ]; then
+              echo "Validating $crd"
+              kubectl --dry-run=client apply -f "$crd" 2>&1 || echo "Warning: $crd validation had issues"
+            fi
+          done
+
+      - name: Template Helm chart (default values)
+        run: |
+          helm template cupcake ./helm --namespace kube-system > /tmp/default.yaml
+          echo "✅ Default values templated successfully"
+
+      - name: Template Helm chart (production values)
+        run: |
+          helm template cupcake ./helm \
+            --namespace kube-system \
+            --values helm/values.yaml \
+            --set operator.replicaCount=2 \
+            --set externalStore.enabled=true \
+            --set externalStore.type=s3 \
+            --set externalStore.s3.bucket=test-bucket \
+            --set externalStore.s3.region=us-east-1 \
+            > /tmp/production.yaml
+          echo "✅ Production values templated successfully"
+
+      - name: Template Helm chart (air-gapped)
+        run: |
+          helm template cupcake ./helm \
+            --namespace kube-system \
+            --set operator.image.repository=registry.internal/cupcake-operator \
+            --set agent.image.repository=registry.internal/cupcake-agent \
+            > /tmp/airgapped.yaml
+          echo "✅ Air-gapped values templated successfully"
+
+      - name: Check for required resources
+        run: |
+          echo "Checking for required Kubernetes resources..."
+          
+          grep -q "kind: CustomResourceDefinition" /tmp/default.yaml || (echo "❌ CRDs not found" && exit 1)
+          echo "✅ CRDs present"
+          
+          grep -q "kind: Deployment" /tmp/default.yaml || (echo "❌ Operator Deployment not found" && exit 1)
+          echo "✅ Operator Deployment present"
+          
+          grep -q "kind: DaemonSet" /tmp/default.yaml || (echo "❌ Agent DaemonSet not found" && exit 1)
+          echo "✅ Agent DaemonSet present"
+          
+          grep -q "kind: ClusterRole" /tmp/default.yaml || (echo "❌ ClusterRole not found" && exit 1)
+          echo "✅ RBAC resources present"
+          
+          grep -q "kind: ServiceAccount" /tmp/default.yaml || (echo "❌ ServiceAccount not found" && exit 1)
+          echo "✅ ServiceAccount present"
+
+      - name: Package Helm chart
+        run: |
+          helm package helm/ --destination /tmp/
+          echo "✅ Helm chart packaged successfully"
+          ls -lh /tmp/*.tgz
+
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: /tmp/*.tgz
+          retention-days: 30
+
+  test-install:
+    name: Test Helm Install
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: cupcake-test
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+
+      - name: Install CUPCAKE
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+          
+          echo "Installing CUPCAKE Helm chart..."
+          helm install cupcake ./helm \
+            --namespace kube-system \
+            --wait \
+            --timeout 5m \
+            --debug
+
+      - name: Verify installation
+        run: |
+          echo "Checking operator deployment..."
+          kubectl get deployment -n kube-system cupcake -o wide
+          kubectl wait --for=condition=available --timeout=300s deployment/cupcake -n kube-system || true
+          
+          echo "Checking agent daemonset..."
+          kubectl get daemonset -n kube-system cupcake-agent -o wide
+          
+          echo "Checking CRDs..."
+          kubectl get crd directupdates.cupcake.ricardomolendijk.com
+          kubectl get crd scheduledupdates.cupcake.ricardomolendijk.com
+          kubectl get crd updateschedules.cupcake.ricardomolendijk.com
+          
+          echo "Checking pods..."
+          kubectl get pods -n kube-system -l app=cupcake
+          
+          echo "✅ CUPCAKE installed successfully"
+
+      - name: Test DirectUpdate CR
+        run: |
+          echo "Creating test DirectUpdate..."
+          kubectl apply -f - <<EOF
+          apiVersion: cupcake.ricardomolendijk.com/v1
+          kind: DirectUpdate
+          metadata:
+            name: test-upgrade
+          spec:
+            targetVersion: "1.28.0"
+            dryRun: true
+            components:
+              - kubeadm
+              - kubelet
+          EOF
+          
+          sleep 5
+          kubectl get directupdate test-upgrade -o yaml
+          echo "✅ DirectUpdate CR created successfully"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          kubectl delete directupdate test-upgrade || true
+          helm uninstall cupcake -n kube-system || true

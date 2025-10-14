@@ -1,0 +1,132 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install operator dependencies
+        run: |
+          cd operator
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov flake8 pylint
+
+      - name: Run version module tests
+        run: |
+          python tests/test_version.py
+          echo "✅ Version tests passed"
+
+      - name: Lint with flake8
+        run: |
+          cd operator
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics
+
+  validate-manifests:
+    name: Validate Manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate CRDs
+        run: |
+          for crd in crds/*.yaml; do
+            echo "Validating $crd"
+            python3 -c "import yaml; yaml.safe_load(open('$crd'))" || exit 1
+          done
+          echo "✅ All CRDs are valid YAML"
+
+      - name: Validate examples
+        run: |
+          for example in examples/*.yaml; do
+            echo "Validating $example"
+            python3 -c "import yaml; yaml.safe_load(open('$example'))" || exit 1
+          done
+          echo "✅ All examples are valid YAML"
+
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check documentation completeness
+        run: |
+          echo "Checking required documentation files..."
+          
+          required_docs=(
+            "README.md"
+            "QUICKSTART.md"
+            "HELM.md"
+            "CHANGELOG.md"
+            "docs/architecture.md"
+            "docs/runbook.md"
+            "docs/security.md"
+            "docs/multi-step-upgrades.md"
+          )
+          
+          for doc in "${required_docs[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "❌ Missing: $doc"
+              exit 1
+            else
+              echo "✅ Found: $doc"
+            fi
+          done
+          
+          echo "✅ All required documentation exists"
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, validate-manifests, docs-check]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          echo "Test Results Summary:"
+          echo "===================="
+          echo "Unit Tests: ${{ needs.unit-tests.result }}"
+          echo "Manifest Validation: ${{ needs.validate-manifests.result }}"
+          echo "Documentation Check: ${{ needs.docs-check.result }}"
+          
+          if [ "${{ needs.unit-tests.result }}" == "failure" ] || \
+             [ "${{ needs.validate-manifests.result }}" == "failure" ]; then
+            echo "❌ Critical tests failed"
+            exit 1
+          fi
+          
+          echo "✅ All critical tests passed"
