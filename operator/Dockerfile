@@ -1,5 +1,5 @@
 # Stage 1: Build dependencies
-FROM python:3.14-slim AS builder
+FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN apk add --no-cache curl && \
     chmod +x kubectl
 
 # Stage 3: Runtime image
-FROM python:3.14-slim
+FROM python:3.13-slim
 
 # Install only runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
