@@ -104,3 +104,7 @@ from handlers import direct_update, scheduled_update, update_schedule
 
 # Register handlers
 logger.info("CUPCAKE operator starting...")
+
+
+if __name__ == '__main__':
+    kopf.run()
