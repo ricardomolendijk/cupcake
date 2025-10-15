@@ -42,12 +42,6 @@ COPY . .
 # Update PATH for pip installed packages
 ENV PATH=/root/.local/bin:$PATH
 
-# Create non-root user
-RUN groupadd -g 1000 operator && \
-    useradd -m -u 1000 -g operator operator && \
-    chown -R operator:operator /app
-
-USER operator
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

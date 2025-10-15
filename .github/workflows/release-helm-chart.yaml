@@ -1,0 +1,69 @@
+name: Release Helm Chart
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Package Helm Chart
+        run: |
+          mkdir -p .cr-release-packages
+          helm package helm -d .cr-release-packages
+
+      - name: Upload Chart to Release
+        run: |
+          for pkg in .cr-release-packages/*.tgz; do
+            if [ -f "$pkg" ]; then
+              gh release upload ${{ github.event.release.tag_name }} "$pkg" --clobber || true
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Helm Repository Index
+        run: |
+          # Checkout gh-pages branch
+          git fetch origin gh-pages:gh-pages || git checkout --orphan gh-pages
+          git checkout gh-pages
+          
+          # Download all chart packages from releases
+          mkdir -p charts
+          gh release list --limit 100 | while read -r line; do
+            tag=$(echo "$line" | awk '{print $1}')
+            gh release download "$tag" -p "*.tgz" -D charts 2>/dev/null || true
+          done
+          
+          # Generate index.yaml
+          helm repo index charts --url https://ricardomolendijk.github.io/cupcake/charts
+          
+          # Move index to root
+          mv charts/index.yaml index.yaml
+          
+          # Commit and push
+          git add charts/ index.yaml
+          git commit -m "Update Helm repository index for ${{ github.event.release.tag_name }}" || true
+          git push origin gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
