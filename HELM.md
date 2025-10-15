@@ -112,9 +112,28 @@ helm push cupcake-0.1.0.tgz \
 
 ### GitHub Pages
 
-Host charts on GitHub Pages for free static hosting.
+Host charts on GitHub Pages for free static hosting. This repository includes automated GitHub Pages deployment via GitHub Actions.
 
-#### Setup
+#### Automated Setup (Recommended)
+
+The repository includes a workflow that automatically publishes Helm charts to GitHub Pages when releases are created.
+
+**See [GitHub Pages Setup Guide](docs/github-pages-setup.md) for detailed configuration instructions.**
+
+Quick setup:
+1. Enable GitHub Pages in repository Settings → Pages
+2. Select source: **GitHub Actions**
+3. Configure workflow permissions in Settings → Actions → General
+4. Push a release tag (e.g., `v0.1.0`) to trigger deployment
+
+Your charts will be automatically available at:
+```
+https://ricardomolendijk.github.io/cupcake
+```
+
+#### Manual Setup (Alternative)
+
+If you prefer manual deployment:
 
 ```bash
 # Create gh-pages branch
@@ -134,17 +153,11 @@ git commit -m "Publish Helm charts"
 git push origin gh-pages
 ```
 
-#### Enable GitHub Pages
-
+Then enable GitHub Pages:
 1. Go to repository Settings
 2. Navigate to Pages
-3. Select `gh-pages` branch
+3. Select `gh-pages` branch as source
 4. Save
-
-Your charts will be available at:
-```
-https://YOUR_USERNAME.github.io/cupcake/charts
-```
 
 ### ChartMuseum
 

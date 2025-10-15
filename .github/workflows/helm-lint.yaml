@@ -8,6 +8,10 @@ on:
     paths:
       - 'helm/**'
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
 
 jobs:
   lint:
@@ -92,10 +96,53 @@ jobs:
     name: Test Helm Install
     runs-on: ubuntu-latest
     needs: lint
+    # Only run install test when images are actually available
+    # Skip for PRs where images aren't pushed, but run for tag releases
+    if: |
+      github.event_name != 'pull_request' && 
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' || 
+       github.event_name == 'workflow_dispatch' ||
+       github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/develop' ||
+       startsWith(github.ref, 'refs/tags/'))
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Wait for Docker images
+        run: |
+          echo "Waiting for Docker images to be built and published..."
+          echo "This job requires images from the build-and-push workflow"
+          
+          # Get the image tag from helm values
+          OPERATOR_TAG=$(grep -A 2 "operator:" helm/values.yaml | grep "tag:" | awk '{print $2}' | tr -d '"')
+          AGENT_TAG=$(grep -A 2 "agent:" helm/values.yaml | grep "tag:" | awk '{print $2}' | tr -d '"')
+          
+          echo "Expected operator tag: ${OPERATOR_TAG}"
+          echo "Expected agent tag: ${AGENT_TAG}"
+          
+          # Check if images are available (with retry)
+          MAX_RETRIES=10
+          RETRY_DELAY=30
+          
+          for image in "rmolendijk/cupcake-operator:${OPERATOR_TAG}" "rmolendijk/cupcake-agent:${AGENT_TAG}"; do
+            echo "Checking for image: $image"
+            for i in $(seq 1 $MAX_RETRIES); do
+              if docker pull $image 2>/dev/null; then
+                echo "✅ Image $image is available"
+                break
+              else
+                if [ $i -eq $MAX_RETRIES ]; then
+                  echo "❌ Error: Image $image not found after $MAX_RETRIES attempts"
+                  exit 1
+                else
+                  echo "Image not ready, waiting ${RETRY_DELAY}s (attempt $i/$MAX_RETRIES)..."
+                  sleep $RETRY_DELAY
+                fi
+              fi
+            done
+          done
 
       - name: Set up Kind cluster
         uses: helm/kind-action@v1
