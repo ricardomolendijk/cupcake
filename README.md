@@ -18,7 +18,7 @@ helm repo update
 
 # Or use OCI registry
 helm install cupcake \
-  oci://ghcr.io/ricardomolendijk/cupcake \
+  oci://docker.io/rmolendijk/cupcake \
   --namespace kube-system \
   --create-namespace
 
@@ -127,7 +127,7 @@ CUPCAKE automatically handles Kubernetes version skew constraints:
 ./build.sh
 
 # Or build with custom registry
-REGISTRY=ghcr.io/ricardomolendijk TAG=v0.1.0 ./build.sh
+REGISTRY=docker.io/rmolendijk TAG=v0.1.0 ./build.sh
 
 # Build and push
 PUSH=true ./build.sh

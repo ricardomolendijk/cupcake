@@ -21,7 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create non-root user
-RUN id -u operator >/dev/null 2>&1 || useradd -m -u 1000 operator; \
+RUN groupadd -g 1000 operator || true; \
+    useradd -m -u 1000 -g operator operator || true; \
     chown -R operator:operator /app
 
 USER operator

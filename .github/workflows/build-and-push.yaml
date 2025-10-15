@@ -15,8 +15,8 @@ on:
 
 env:
   REGISTRY: docker.io
-  OPERATOR_IMAGE_NAME: ricardomolendijk/cupcake-operator
-  AGENT_IMAGE_NAME: ricardomolendijk/cupcake-agent
+  OPERATOR_IMAGE_NAME: rmolendijk/cupcake-operator
+  AGENT_IMAGE_NAME: rmolendijk/cupcake-agent
 
 jobs:
   build-operator:
@@ -185,14 +185,14 @@ jobs:
           echo "### Docker Images" >> release_notes.md
           echo "" >> release_notes.md
           echo '```bash' >> release_notes.md
-          echo "docker pull ricardomolendijk/cupcake-operator:v$VERSION" >> release_notes.md
-          echo "docker pull ricardomolendijk/cupcake-agent:v$VERSION" >> release_notes.md
+          echo "docker pull rmolendijk/cupcake-operator:v$VERSION" >> release_notes.md
+          echo "docker pull rmolendijk/cupcake-agent:v$VERSION" >> release_notes.md
           echo '```' >> release_notes.md
           echo "" >> release_notes.md
           echo "### Installation" >> release_notes.md
           echo "" >> release_notes.md
           echo '```bash' >> release_notes.md
-          echo "helm install cupcake oci://ghcr.io/ricardomolendijk/cupcake --version $VERSION --namespace kube-system" >> release_notes.md
+          echo "helm install cupcake docker.io/rmolendijk/cupcake --version $VERSION --namespace kube-system" >> release_notes.md
           echo '```' >> release_notes.md
           echo "" >> release_notes.md
           echo "Or with custom values:" >> release_notes.md

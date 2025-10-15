@@ -15,7 +15,7 @@ Get the Kubernetes Update Operator running in 5 minutes.
 ```bash
 # Install from OCI registry (if published)
 helm install cupcake \
-  oci://ghcr.io/YOUR_ORG/cupcake \
+  oci://docker.io/rmolendijk/cupcake \
   --namespace kube-system \
   --create-namespace
 
