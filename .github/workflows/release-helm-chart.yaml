@@ -4,9 +4,19 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -27,6 +37,15 @@ jobs:
         with:
           version: v3.14.0
 
+      - name: Get release tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Package Helm Chart
         run: |
           mkdir -p .cr-release-packages
@@ -36,34 +55,98 @@ jobs:
         run: |
           for pkg in .cr-release-packages/*.tgz; do
             if [ -f "$pkg" ]; then
-              gh release upload ${{ github.event.release.tag_name }} "$pkg" --clobber || true
+              gh release upload ${{ steps.get_tag.outputs.tag }} "$pkg" --clobber || true
             fi
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Helm Repository Index
+  update-helm-index:
+    runs-on: ubuntu-latest
+    needs: release
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
         run: |
-          # Checkout gh-pages branch
-          git fetch origin gh-pages:gh-pages || git checkout --orphan gh-pages
-          git checkout gh-pages
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Prepare Helm repository
+        run: |
+          # Create directory for Helm repo
+          mkdir -p helm-repo/charts
           
           # Download all chart packages from releases
-          mkdir -p charts
+          echo "Downloading Helm charts from releases..."
           gh release list --limit 100 | while read -r line; do
             tag=$(echo "$line" | awk '{print $1}')
-            gh release download "$tag" -p "*.tgz" -D charts 2>/dev/null || true
+            echo "Downloading charts from release: $tag"
+            gh release download "$tag" -p "*.tgz" -D helm-repo/charts 2>/dev/null || true
           done
           
           # Generate index.yaml
-          helm repo index charts --url https://ricardomolendijk.github.io/cupcake/charts
+          echo "Generating Helm repository index..."
+          helm repo index helm-repo/charts --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/charts
           
-          # Move index to root
-          mv charts/index.yaml index.yaml
+          # Copy index to root for GitHub Pages
+          cp helm-repo/charts/index.yaml helm-repo/index.yaml
           
-          # Commit and push
-          git add charts/ index.yaml
-          git commit -m "Update Helm repository index for ${{ github.event.release.tag_name }}" || true
-          git push origin gh-pages
+          # Create a simple index.html
+          cat > helm-repo/index.html <<EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>CUPCAKE Helm Repository</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+              code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+              pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+            </style>
+          </head>
+          <body>
+            <h1>🧁 CUPCAKE Helm Repository</h1>
+            <p>Kubernetes Upgrade Automation Operator</p>
+            
+            <h2>Add this Helm repository</h2>
+            <pre>helm repo add cupcake https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          helm repo update</pre>
+            
+            <h2>Install CUPCAKE</h2>
+            <pre>helm install cupcake cupcake/cupcake --namespace kube-system</pre>
+            
+            <h2>Available Charts</h2>
+            <p>See <a href="charts/">charts/</a> for available chart packages.</p>
+            <p>See <a href="index.yaml">index.yaml</a> for the repository index.</p>
+            
+            <h2>Documentation</h2>
+            <p>Visit the <a href="https://github.com/${{ github.repository }}">GitHub repository</a> for full documentation.</p>
+          </body>
+          </html>
+          EOF
+          
+          echo "Helm repository prepared successfully"
+          ls -la helm-repo/
+          ls -la helm-repo/charts/
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: helm-repo
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
