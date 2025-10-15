@@ -2,11 +2,17 @@ name: Tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches-ignore: 
+      - main
+      - develop
+      - 'v*'
   pull_request:
-    branches: [ main, develop ]
+    branches-ignore: 
+      - main
+      - develop
+      - 'v*'
   workflow_dispatch:
-
+  
 jobs:
   unit-tests:
     name: Unit Tests
