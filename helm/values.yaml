@@ -7,7 +7,7 @@ operator:
   image:
     repository: cupcake-operator
     pullPolicy: IfNotPresent
-    tag: "v0.1.0"
+    tag: "v0.1.5"
   
   imagePullSecrets: []
   nameOverride: ""
@@ -67,7 +67,7 @@ agent:
   image:
     repository: cupcake-agent
     pullPolicy: IfNotPresent
-    tag: "v0.1.0"
+    tag: "v0.1.5"
   
   imagePullSecrets: []
   
