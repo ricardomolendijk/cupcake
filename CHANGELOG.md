@@ -1,4 +1,4 @@
-# Changelog
+ # Changelog
 
 All notable changes to the Kubernetes Update Operator will be documented in this file.
 
