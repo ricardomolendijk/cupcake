@@ -2,8 +2,8 @@ apiVersion: v2
 name: cupcake
 description: Kubernetes cluster upgrade automation - Control-plane Upgrade Platform for Continuous Kubernetes Evolution
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.1.4
+appVersion: "0.1.4"
 keywords:
   - kubernetes
   - operator
