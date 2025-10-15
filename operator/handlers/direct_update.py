@@ -83,12 +83,12 @@ def create_direct_update(spec, name, namespace, status, **kwargs):
                 f'Multi-step upgrade required: {len(upgrade_path)} versions. '
                 f'Path: {" → ".join(str(v) for v in upgrade_path)}'
             )
+        elif version.is_patch_upgrade(current_version, target_version):
+            upgrade_path_info = None
+            initial_message = f'Patch upgrade: {current_version} → {target_version}'
         else:
             upgrade_path_info = None
-            if version.is_patch_upgrade(current_version, target_version):
-                initial_message = f'Patch upgrade: {current_version} → {target_version}'
-            else:
-                initial_message = f'Minor version upgrade: {current_version} → {target_version}'
+            initial_message = f'Minor version upgrade: {current_version} → {target_version}'
     
     # Initialize status
     initial_status = {
@@ -198,43 +198,44 @@ def handle_pending_phase(spec, name, status, operation_id):
     logger.info(f"Running preflight checks for {name}")
     
     # Run preflight checks if enabled
-    if spec.get('preflightChecks', True):
-        try:
-            plan = planner.make_plan(spec)
-            checks = preflight.run_preflight_checks(spec, plan)
-            
-            # Update status with preflight results
-            status_update = {
-                'preflightResults': {
-                    'passed': checks['passed'],
-                    'checks': checks['checks']
-                },
-                'lastUpdated': datetime.now(timezone.utc).isoformat()
-            }
-            
-            if not checks['passed']:
-                status_update['phase'] = 'RequiresAttention'
-                status_update['message'] = 'Preflight checks failed'
-                logger.error(f"Preflight checks failed for {name}")
-            else:
-                status_update['phase'] = 'InProgress'
-                status_update['message'] = 'Preflight checks passed, starting upgrade'
-                logger.info(f"Preflight checks passed for {name}")
-            
-            state.patch_status(GROUP, VERSION, PLURAL, name, status_update)
-            
-        except Exception as e:
-            logger.error(f"Preflight checks error: {e}")
-            state.patch_status(GROUP, VERSION, PLURAL, name, {
-                'phase': 'RequiresAttention',
-                'message': f'Preflight checks error: {str(e)}',
-                'lastUpdated': datetime.now(timezone.utc).isoformat()
-            })
-    else:
+    if not spec.get('preflightChecks', True):
         # Skip preflight checks
         state.patch_status(GROUP, VERSION, PLURAL, name, {
             'phase': 'InProgress',
             'message': 'Preflight checks skipped, starting upgrade',
+            'lastUpdated': datetime.now(timezone.utc).isoformat()
+        })
+        return
+    
+    try:
+        plan = planner.make_plan(spec)
+        checks = preflight.run_preflight_checks(spec, plan)
+        
+        # Update status with preflight results
+        status_update = {
+            'preflightResults': {
+                'passed': checks['passed'],
+                'checks': checks['checks']
+            },
+            'lastUpdated': datetime.now(timezone.utc).isoformat()
+        }
+        
+        if not checks['passed']:
+            status_update['phase'] = 'RequiresAttention'
+            status_update['message'] = 'Preflight checks failed'
+            logger.error(f"Preflight checks failed for {name}")
+        else:
+            status_update['phase'] = 'InProgress'
+            status_update['message'] = 'Preflight checks passed, starting upgrade'
+            logger.info(f"Preflight checks passed for {name}")
+        
+        state.patch_status(GROUP, VERSION, PLURAL, name, status_update)
+        
+    except Exception as e:
+        logger.error(f"Preflight checks error: {e}")
+        state.patch_status(GROUP, VERSION, PLURAL, name, {
+            'phase': 'RequiresAttention',
+            'message': f'Preflight checks error: {str(e)}',
             'lastUpdated': datetime.now(timezone.utc).isoformat()
         })
 

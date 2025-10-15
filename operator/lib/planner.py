@@ -50,14 +50,31 @@ def make_plan(spec):
             workers.append(node_name)
     
     # Handle canary nodes if specified
-    if spec.get('canary', {}).get('enabled', False):
-        canary_nodes = spec.get('canary', {}).get('nodes', [])
-        if canary_nodes:
-            # Move canary nodes to front of worker list
-            canary_in_workers = [n for n in canary_nodes if n in workers]
-            non_canary_workers = [n for n in workers if n not in canary_nodes]
-            workers = canary_in_workers + non_canary_workers
-            logger.info(f"Canary enabled with {len(canary_in_workers)} canary nodes")
+    canary_config = spec.get('canary', {})
+    if not canary_config.get('enabled', False):
+        plan = {
+            'control_plane_nodes': control_plane,
+            'worker_nodes': workers,
+            'total': len(control_plane) + len(workers)
+        }
+        logger.info(f"Plan: {len(control_plane)} control-plane, {len(workers)} workers")
+        return plan
+    
+    canary_nodes = canary_config.get('nodes', [])
+    if not canary_nodes:
+        plan = {
+            'control_plane_nodes': control_plane,
+            'worker_nodes': workers,
+            'total': len(control_plane) + len(workers)
+        }
+        logger.info(f"Plan: {len(control_plane)} control-plane, {len(workers)} workers")
+        return plan
+    
+    # Move canary nodes to front of worker list
+    canary_in_workers = [n for n in canary_nodes if n in workers]
+    non_canary_workers = [n for n in workers if n not in canary_nodes]
+    workers = canary_in_workers + non_canary_workers
+    logger.info(f"Canary enabled with {len(canary_in_workers)} canary nodes")
     
     plan = {
         'control_plane_nodes': control_plane,

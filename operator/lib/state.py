@@ -35,8 +35,9 @@ def patch_status(group, version, plural, name, status_patch):
     except client.exceptions.ApiException as e:
         if e.status == 404:
             logger.error(f"Resource {plural}/{name} not found")
-        else:
-            logger.error(f"Failed to patch status for {plural}/{name}: {e}")
+            return False
+        
+        logger.error(f"Failed to patch status for {plural}/{name}: {e}")
         return False
     except Exception as e:
         logger.error(f"Unexpected error patching status: {e}")

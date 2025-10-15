@@ -45,13 +45,19 @@ def load_kubernetes_config():
     try:
         config.load_incluster_config()
         logger.info("Loaded in-cluster Kubernetes configuration")
+        return
     except config.ConfigException:
-        try:
-            config.load_kube_config()
-            logger.info("Loaded kubeconfig configuration")
-        except config.ConfigException:
-            logger.error("Could not load Kubernetes configuration")
-            sys.exit(1)
+        pass
+    
+    try:
+        config.load_kube_config()
+        logger.info("Loaded kubeconfig configuration")
+        return
+    except config.ConfigException:
+        pass
+    
+    logger.error("Could not load Kubernetes configuration")
+    sys.exit(1)
 
 
 @kopf.on.startup()
@@ -62,12 +68,13 @@ def configure(settings: kopf.OperatorSettings, **_):
     
     # Leader election settings
     leader_enabled = os.getenv('LEADER_ELECTION_ENABLED', 'true').lower() == 'true'
-    if leader_enabled:
+    
+    if not leader_enabled:
+        settings.peering.standalone = True
+    else:
         settings.peering.priority = 0
         settings.peering.name = os.getenv('OPERATOR_NAME', 'cupcake')
         settings.peering.lifetime = 60
-    else:
-        settings.peering.standalone = True
     
     # Configure watching
     settings.watching.server_timeout = 600
@@ -75,11 +82,13 @@ def configure(settings: kopf.OperatorSettings, **_):
     
     # Start metrics server
     metrics_enabled = os.getenv('METRICS_ENABLED', 'true').lower() == 'true'
-    if metrics_enabled:
-        metrics_port = int(os.getenv('METRICS_PORT', '8080'))
-        start_http_server(metrics_port)
-        logger.info(f"Metrics server started on port {metrics_port}")
+    if not metrics_enabled:
+        logger.info("Operator configuration complete")
+        return
     
+    metrics_port = int(os.getenv('METRICS_PORT', '8080'))
+    start_http_server(metrics_port)
+    logger.info(f"Metrics server started on port {metrics_port}")
     logger.info("Operator configuration complete")
 
 

@@ -101,12 +101,12 @@ def check_nodes_ready(plan):
                 'passed': False,
                 'message': f'Nodes not ready: {", ".join(not_ready)}'
             }
-        else:
-            return {
-                'name': 'Node Readiness',
-                'passed': True,
-                'message': f'All {len(all_nodes)} nodes are ready'
-            }
+        
+        return {
+            'name': 'Node Readiness',
+            'passed': True,
+            'message': f'All {len(all_nodes)} nodes are ready'
+        }
     
     except Exception as e:
         logger.error(f"Node readiness check failed: {e}")
@@ -139,12 +139,12 @@ def check_disk_space(plan):
                 'passed': False,
                 'message': f'Nodes with disk pressure: {", ".join(low_disk)}'
             }
-        else:
-            return {
-                'name': 'Disk Space',
-                'passed': True,
-                'message': f'All nodes have sufficient disk space'
-            }
+        
+        return {
+            'name': 'Disk Space',
+            'passed': True,
+            'message': f'All nodes have sufficient disk space'
+        }
     
     except Exception as e:
         logger.error(f"Disk space check failed: {e}")
@@ -168,18 +168,18 @@ def check_pdbs():
             if pdb.status.disruptions_allowed == 0:
                 restrictive_pdbs.append(f"{pdb.metadata.namespace}/{pdb.metadata.name}")
         
-        if restrictive_pdbs:
-            return {
-                'name': 'PodDisruptionBudgets',
-                'passed': True,  # Warning, not a failure
-                'message': f'Warning: {len(restrictive_pdbs)} PDBs with 0 disruptions allowed: {", ".join(restrictive_pdbs[:3])}'
-            }
-        else:
+        if not restrictive_pdbs:
             return {
                 'name': 'PodDisruptionBudgets',
                 'passed': True,
                 'message': 'PDBs are not overly restrictive'
             }
+        
+        return {
+            'name': 'PodDisruptionBudgets',
+            'passed': True,  # Warning, not a failure
+            'message': f'Warning: {len(restrictive_pdbs)} PDBs with 0 disruptions allowed: {", ".join(restrictive_pdbs[:3])}'
+        }
     
     except Exception as e:
         logger.warning(f"PDB check failed (non-critical): {e}")
@@ -220,10 +220,10 @@ def check_airgap_bundle(spec):
                 'passed': False,
                 'message': f'Air-gap bundle ConfigMap {bundle_cm} not found'
             }
-        else:
-            logger.error(f"Air-gap bundle check failed: {e}")
-            return {
-                'name': 'Air-Gap Bundle',
-                'passed': False,
-                'message': f'Failed to check air-gap bundle: {str(e)}'
-            }
+        
+        logger.error(f"Air-gap bundle check failed: {e}")
+        return {
+            'name': 'Air-Gap Bundle',
+            'passed': False,
+            'message': f'Failed to check air-gap bundle: {str(e)}'
+        }
