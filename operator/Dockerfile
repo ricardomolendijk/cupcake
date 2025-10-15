@@ -42,7 +42,6 @@ COPY . .
 # Update PATH for pip installed packages
 ENV PATH=/root/.local/bin:$PATH
 
-
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"

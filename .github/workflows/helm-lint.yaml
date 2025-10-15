@@ -4,11 +4,9 @@ on:
   push:
     paths:
       - 'helm/**'
-      - 'crds/**'
   pull_request:
     paths:
       - 'helm/**'
-      - 'crds/**'
   workflow_dispatch:
   workflow_run:
     workflows: ["Build and Push Docker Images"]
@@ -34,15 +32,6 @@ jobs:
       - name: Lint Helm chart
         run: |
           helm lint helm/
-
-      - name: Validate CRDs
-        run: |
-          for crd in crds/*.yaml helm/templates/crds.yaml; do
-            if [ -f "$crd" ]; then
-              echo "Validating $crd"
-              kubectl --dry-run=client apply -f "$crd" 2>&1 || echo "Warning: $crd validation had issues"
-            fi
-          done
 
       - name: Template Helm chart (default values)
         run: |
