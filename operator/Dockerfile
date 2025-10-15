@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --target=/app/dependencies -r requirements.txt
 
 # Stage 2: Download kubectl
 FROM alpine:3.19 AS kubectl-downloader
@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /app/dependencies /app/dependencies
 
 # Copy kubectl binary
 COPY --from=kubectl-downloader /kubectl /usr/local/bin/kubectl
@@ -39,8 +39,8 @@ COPY --from=kubectl-downloader /kubectl /usr/local/bin/kubectl
 # Copy application code
 COPY . .
 
-# Update PATH for pip installed packages
-ENV PATH=/root/.local/bin:$PATH
+# Update PYTHONPATH for installed packages
+ENV PYTHONPATH=/app/dependencies:$PYTHONPATH
 
 
 # Health check

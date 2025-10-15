@@ -5,9 +5,9 @@
 operator:
   replicaCount: 1
   image:
-    repository: cupcake-operator
+    repository: rmolendijk/cupcake-operator
     pullPolicy: IfNotPresent
-    tag: "v0.1.0"
+    tag: "0.1.5"
   
   imagePullSecrets: []
   nameOverride: ""
@@ -65,9 +65,9 @@ operator:
 agent:
   enabled: true
   image:
-    repository: cupcake-agent
+    repository: rmolendijk/cupcake-agent
     pullPolicy: IfNotPresent
-    tag: "v0.1.0"
+    tag: "0.1.5"
   
   imagePullSecrets: []
   
