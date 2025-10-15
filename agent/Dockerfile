@@ -1,37 +1,47 @@
-FROM python:3.11-slim
+# Stage 1: Build dependencies
+FROM python:3.14-slim AS builder
 
-# Install system dependencies and tools
-RUN apt-get update && apt-get install -y \
-    curl \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    lsb-release \
-    systemctl \
-    etcd-client \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install kubectl
-RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | \
-    gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | \
-    tee /etc/apt/sources.list.d/kubernetes.list && \
-    apt-get update && \
-    apt-get install -y kubectl && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create app directory
 WORKDIR /app
 
-# Copy requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy agent code
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Stage 2: Download kubectl
+FROM alpine:3.19 AS kubectl-downloader
+
+RUN apk add --no-cache curl && \
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl
+
+# Stage 3: Runtime image
+FROM python:3.14-slim
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    etcd-client \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=builder /root/.local /root/.local
+
+# Copy kubectl binary
+COPY --from=kubectl-downloader /kubectl /usr/local/bin/kubectl
+
+# Copy application code
 COPY main.py .
 
-# Make main.py executable
-RUN chmod +x main.py
+# Update PATH for pip installed packages
+ENV PATH=/root/.local/bin:$PATH
 
 # Run as root (required for privileged operations)
 USER root

@@ -1,28 +1,50 @@
-FROM python:3.11-slim
+# Stage 1: Build dependencies
+FROM python:3.14-slim AS builder
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/
-
-# Create app directory
 WORKDIR /app
 
-# Copy requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy operator code
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Stage 2: Download kubectl
+FROM alpine:3.19 AS kubectl-downloader
+
+RUN apk add --no-cache curl && \
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl
+
+# Stage 3: Runtime image
+FROM python:3.14-slim
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=builder /root/.local /root/.local
+
+# Copy kubectl binary
+COPY --from=kubectl-downloader /kubectl /usr/local/bin/kubectl
+
+# Copy application code
 COPY . .
 
+# Update PATH for pip installed packages
+ENV PATH=/root/.local/bin:$PATH
+
 # Create non-root user
-RUN groupadd -g 1000 operator || true; \
-    useradd -m -u 1000 -g operator operator || true; \
+RUN groupadd -g 1000 operator && \
+    useradd -m -u 1000 -g operator operator && \
     chown -R operator:operator /app
 
 USER operator
